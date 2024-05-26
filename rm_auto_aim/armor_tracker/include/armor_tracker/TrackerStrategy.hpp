@@ -1,4 +1,5 @@
 // Copyright 2023 Hotpot DL
+
 #pragma once
 
 #include "armor_tracker/BaseStrategy.hpp"

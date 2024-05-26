@@ -12,6 +12,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // TF2
@@ -40,6 +41,7 @@
 #include "armor_detector/pnp_solver.hpp"
 #include "auto_aim_interfaces/msg/armors.hpp"
 #include <std_msgs/msg/char.hpp>
+#include "rm_interfaces/msg/game_state.hpp"
 namespace rm_auto_aim
 {
 
@@ -119,6 +121,15 @@ private:
   rclcpp::Subscription<std_msgs::msg::Char>::SharedPtr color_sub_;
   int count_red_{0} ;
   int count_blue_{0} ;
+
+  // 控制前哨站检测逻辑
+  bool detect_outpost_control_ = false;
+  double now_pitch_ = 0.0;
+  rclcpp::Subscription<rm_interfaces::msg::GameState>::SharedPtr game_state_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr gimbal_state_sub_;
+  void gameStateCallback(const rm_interfaces::msg::GameState::SharedPtr game_status);
+  void gimbalStateCallback(const sensor_msgs::msg::JointState::SharedPtr joint_state);
+  inline double rad2deg(double rad) { return (rad * 180.0) / M_PI; }
 };
 
 }  // namespace rm_auto_aim

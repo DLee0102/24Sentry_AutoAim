@@ -21,12 +21,15 @@ class NumberClassifier
 {
 public:
   NumberClassifier(
-    const std::string & model_path, const std::string & label_path, const double threshold,
-    const std::vector<std::string> & ignore_classes = {});
+    const std::string & model_path, const std::string & label_path, const double thre,
+    const std::vector<std::string> & ignore_classes, bool & detect_outpost_control, double & now_pitch_);
 
   void extractNumbers(const cv::Mat & src, std::vector<Armor> & armors);
 
   void classify(std::vector<Armor> & armors);
+
+  bool & detect_outpost_control_;
+  double & now_pitch_;
 
   double threshold;
 

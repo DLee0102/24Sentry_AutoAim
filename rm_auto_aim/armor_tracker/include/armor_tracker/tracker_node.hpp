@@ -30,6 +30,7 @@
 #include "auto_aim_interfaces/msg/armors.hpp"
 #include "auto_aim_interfaces/msg/target.hpp"
 #include "auto_aim_interfaces/msg/tracker_info.hpp"
+#include "rm_interfaces/msg/game_state.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "armor_tracker/trajectory_slover.hpp"
@@ -102,7 +103,6 @@ private:
   // OmniPerception
   std::vector<double> pitch_limit_;
   double inside_threshold_yaw_, inside_threshold_pitch_;
-  double spin_target_angle_;
 
   // Subscriber with tf2 message_filter
   std::string target_frame_;
@@ -164,6 +164,10 @@ private:
   double fire_permit_thres_;
   double fire_latency_;
 
+  // lock yaw thres
+  double lock_vyaw_thres_;
+  double lock_vyaw_diff_;
+
   //speed thres
   double min_speed_;
 
@@ -179,11 +183,14 @@ private:
   //Subscriber latency
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr latency_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr auto_aim_restartflag_sub_;
+  rclcpp::Subscription<rm_interfaces::msg::GameState>::SharedPtr game_state_sub_;
 
   // Control gimbal by Navigation and OmniPerception
   void navCallback(const auto_aim_interfaces::msg::Armors::SharedPtr nav_msg);
   void omniCallback(const auto_aim_interfaces::msg::Armors::SharedPtr omni_msg);
   void gimbalStateCallback(const sensor_msgs::msg::JointState::SharedPtr joint_state);
+  void gameStateCallback(const rm_interfaces::msg::GameState::SharedPtr game_state);
+
   struct GimbalState
   {
     double yaw;

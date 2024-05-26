@@ -88,6 +88,11 @@ ArmorTrackerNode::ArmorTrackerNode(const rclcpp::NodeOptions & options)
     "/joint_states", rclcpp::QoS(rclcpp::KeepLast(1)),
     std::bind(&ArmorTrackerNode::gimbalStateCallback, this, std::placeholders::_1));
 
+  // game state 
+  std::string game_state_topic = this->declare_parameter("game_state_topic", "/game_state");
+  game_state_sub_ = this->create_subscription<rm_interfaces::msg::GameState>(
+    game_state_topic, rclcpp::SensorDataQoS(),
+    std::bind(&ArmorTrackerNode::gameStateCallback, this, std::placeholders::_1));
   // params_callback_handle_ = this->add_on_set_parameters_callback(
   //   std::bind(&ArmorTrackerNode::parametersCallback, this, std::placeholders::_1));
 }
@@ -119,12 +124,13 @@ void ArmorTrackerNode::declareParameters()
   hit_order_["base"] = this->declare_parameter("hit_order.base", 12);
   hit_order_["negative"] = this->declare_parameter("hit_order.negative", 13);
 
+  lock_vyaw_thres_ = this->declare_parameter("lock_vyaw_thres", 4.0);
+  lock_vyaw_diff_ = this->declare_parameter("lock_vyaw_diff", 5.0);
+
   // omni perception
   pitch_limit_ = this->declare_parameter<std::vector<double>>("omniperception.pitch_limit", { 25.0, -25.0 });
   inside_threshold_yaw_ = this->declare_parameter("omniperception.inside_threshold_yaw", 20.0);
   inside_threshold_pitch_ = this->declare_parameter("omniperception.inside_threshold_pitch", 5.0);
-  spin_target_angle_ =
-    this->declare_parameter("omniperception.spin_target_angle", 120.0);
 
   // Debug
   debug_ = this->declare_parameter("debug", true);
@@ -351,16 +357,22 @@ void ArmorTrackerNode::omniCallback(const auto_aim_interfaces::msg::Armors::Shar
     if (omni_strategy_->switchTO(fulldetect_armor_.number)) {
       std::cout << "full detect set tracked id to " << fulldetect_armor_.number << std::endl;
       omni_strategy_->setTrackedArmor(fulldetect_armor_.number);
+      double offset_yaw = fulldetect_armor_.pose.position.x;
+      double offset_pitch = fulldetect_armor_.pose.position.y;
       if (fulldetect_armor_.header.frame_id == "usb_camera_a_link") {
-        target_state_.yaw = current_state_.yaw + spin_target_angle_;
+        target_state_.yaw = current_state_.yaw + offset_yaw;
         while (target_state_.yaw < -180.0) target_state_.yaw += 360.0;
         while (target_state_.yaw > 180.0) target_state_.yaw -= 360.0;
-        target_state_.pitch = 0.0;
+        target_state_.pitch = offset_pitch;
+        if(target_state_.pitch > pitch_limit_[0]) target_state_.pitch = pitch_limit_[0];
+        if(target_state_.pitch < pitch_limit_[1]) target_state_.pitch = pitch_limit_[1];
       } else if (fulldetect_armor_.header.frame_id == "usb_camera_b_link") {
-        target_state_.yaw = current_state_.yaw - spin_target_angle_;
+        target_state_.yaw = current_state_.yaw - offset_yaw;
         while (target_state_.yaw < -180.0) target_state_.yaw += 360.0;
         while (target_state_.yaw > 180.0) target_state_.yaw -= 360.0;
-        target_state_.pitch = 0.0; //TODO: set pitch according to full detect's msg
+        target_state_.pitch = offset_pitch;
+        if(target_state_.pitch > pitch_limit_[0]) target_state_.pitch = pitch_limit_[0];
+        if(target_state_.pitch < pitch_limit_[1]) target_state_.pitch = pitch_limit_[1];
       }
       bool inside_offset =
         abs(target_state_.yaw - current_state_.yaw) < inside_threshold_yaw_ &&
@@ -591,6 +603,15 @@ void ArmorTrackerNode::armorsCallback(const auto_aim_interfaces::msg::Armors::Sh
     bool tracked_permit = false;
     tracker_->observer_->getTargetArmorPosition(
       pred_dt, armor_target, min_yaw_diff, tracked_permit);
+    
+    double car_w = target_msg.v_yaw;
+    bool follow_permit = true;
+    if (fabs(car_w) > lock_vyaw_thres_)
+      follow_permit = false;
+    if (rad2deg(min_yaw_diff) < lock_vyaw_diff_)
+    {
+      follow_permit = true;
+    }
 
     geometry_msgs::msg::PoseStamped temp_pose_point;
     Eigen::Vector3d armor_target_pitch_link;
@@ -637,7 +658,7 @@ void ArmorTrackerNode::armorsCallback(const auto_aim_interfaces::msg::Armors::Sh
     RCLCPP_INFO(get_logger(), "distance : %lf", (now_car_pos.norm() - target_msg.radius_1));
     RCLCPP_INFO(get_logger(), "speed : %lf", trajectory_slover_->getBulletSpeed());
     RCLCPP_INFO(get_logger(), "latency : %lf", latency_ / 1000.0);
-    if ((!(isnan(target_msg.offset_yaw) || isnan(target_msg.offset_pitch))) && tracked_permit) {
+    if ((!(isnan(target_msg.offset_yaw) || isnan(target_msg.offset_pitch))) && tracked_permit && follow_permit) {
       target_msg_final = target_msg;
       target_msg_final.control = true;
     }
@@ -646,6 +667,16 @@ void ArmorTrackerNode::armorsCallback(const auto_aim_interfaces::msg::Armors::Sh
   }
 
   target_pub_->publish(target_msg_final);
+}
+
+void ArmorTrackerNode::gameStateCallback(
+  const rm_interfaces::msg::GameState::SharedPtr game_status)
+{
+  // modify hit order when enemy outpost is destroyed
+  if (game_status->enemy_outpost_hp == 0 && game_status->stage_remain_time && game_status->game_progress == 4) {
+    hit_order_["guard"] = 0;
+    hit_order_["2"] = 13;
+  }
 }
 
 void ArmorTrackerNode::publishMarkers(

@@ -26,8 +26,8 @@ namespace rm_auto_aim
 {
 NumberClassifier::NumberClassifier(
   const std::string & model_path, const std::string & label_path, const double thre,
-  const std::vector<std::string> & ignore_classes)
-: threshold(thre), ignore_classes_(ignore_classes)
+  const std::vector<std::string> & ignore_classes, bool & detect_outpost_control, double & now_pitch)
+: detect_outpost_control_(detect_outpost_control), now_pitch_(now_pitch), threshold(thre), ignore_classes_(ignore_classes)
 {
   net_ = cv::dnn::readNetFromONNX(model_path);
 
@@ -120,30 +120,77 @@ void NumberClassifier::classify(std::vector<Armor> & armors)
     armor.classfication_result = result_ss.str();
   }
 
-  armors.erase(
-    std::remove_if(
-      armors.begin(), armors.end(),
-      [this](const Armor & armor) {
-        if (armor.confidence < threshold) {
-          return true;
-        }
+  if (detect_outpost_control_ && now_pitch_ > 3.0)
+  {
 
-        for (const auto & ignore_class : ignore_classes_) {
-          if (armor.number == ignore_class) {
+    armors.erase(
+      std::remove_if(
+        armors.begin(), armors.end(),
+        [this](Armor & armor) {
+          if (armor.number != "negative" && armor.number != "outpost")
+          {
+            if (armor.confidence < threshold) {
+              return true;
+            }
+
+            for (const auto & ignore_class : ignore_classes_) {
+              if (armor.number == ignore_class) {
+                return true;
+              }
+            }
+
+            bool mismatch_armor_type = false;
+            if (armor.type == ArmorType::LARGE) {
+              mismatch_armor_type =
+                armor.number == "outpost" || armor.number == "2" || armor.number == "guard";
+            } else if (armor.type == ArmorType::SMALL) {
+              mismatch_armor_type = armor.number == "1" || armor.number == "base";
+            }
+            return mismatch_armor_type;
+          }
+          else
+          {
+            armor.number = "outpost";
+            armor.confidence = 100.0;
+            bool mismatch_armor_type = false;
+            if (armor.type == ArmorType::LARGE) {
+              mismatch_armor_type =
+                armor.number == "outpost" || armor.number == "2" || armor.number == "guard";
+            } else if (armor.type == ArmorType::SMALL) {
+              mismatch_armor_type = armor.number == "1" || armor.number == "base";
+            }
+            return mismatch_armor_type;
+          }
+        }),
+      armors.end());
+  }
+  else
+  {
+    armors.erase(
+      std::remove_if(
+        armors.begin(), armors.end(),
+        [this](const Armor & armor) {
+          if (armor.confidence < threshold) {
             return true;
           }
-        }
 
-        bool mismatch_armor_type = false;
-        if (armor.type == ArmorType::LARGE) {
-          mismatch_armor_type =
-            armor.number == "outpost" || armor.number == "2" || armor.number == "guard";
-        } else if (armor.type == ArmorType::SMALL) {
-          mismatch_armor_type = armor.number == "1" || armor.number == "base";
-        }
-        return mismatch_armor_type;
-      }),
-    armors.end());
+          for (const auto & ignore_class : ignore_classes_) {
+            if (armor.number == ignore_class) {
+              return true;
+            }
+          }
+
+          bool mismatch_armor_type = false;
+          if (armor.type == ArmorType::LARGE) {
+            mismatch_armor_type =
+              armor.number == "outpost" || armor.number == "2" || armor.number == "guard";
+          } else if (armor.type == ArmorType::SMALL) {
+            mismatch_armor_type = armor.number == "1" || armor.number == "base";
+          }
+          return mismatch_armor_type;
+        }),
+      armors.end());
+  }
 }
 
 }  // namespace rm_auto_aim

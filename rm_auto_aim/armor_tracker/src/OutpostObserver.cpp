@@ -259,14 +259,19 @@ namespace rm_auto_aim {
             }
 
             auto tmp_yaw_diff = fabs(a_yaw - car_center_diff);
-            if(tmp_yaw_diff < min_yaw_diff)
+            if (tmp_yaw_diff >= M_PI)
             {
-                min_yaw_diff = tmp_yaw_diff;
+                tmp_yaw_diff -= 2.0*M_PI ;
+            }
+            // std::cout << "yaw: " << rad2deg(tmp_yaw_diff) << " " << rad2deg(car_center_diff) << " ";
+            if(fabs(tmp_yaw_diff) < min_yaw_diff)
+            {
+                min_yaw_diff = fabs(tmp_yaw_diff);
                 armor_target_min_yaw_diff = pred_armor_pos;
                 target_armor_pos_.second = tmp_yaw;
             }
         }
-
+        // std::cout << std::endl << "final yaw: " << rad2deg(min_yaw_diff) << std::endl;
         if (rad2deg(min_yaw_diff) < yaw_angle_thres_ )
             tracked_permit = 1;
         target_armors_pos_vec_ = temp_armors_pos_vec;

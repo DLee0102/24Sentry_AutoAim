@@ -303,12 +303,16 @@ namespace rm_auto_aim {
             }
 
             auto tmp_yaw_diff = fabs(a_yaw - car_center_diff);
-            if(tmp_yaw_diff < min_yaw_diff)
+            if (tmp_yaw_diff >= M_PI)
             {
-                min_yaw_diff = tmp_yaw_diff;
+                tmp_yaw_diff -= 2.0*M_PI ;
+            }
+            // std::cout << "yaw: " << rad2deg(tmp_yaw_diff) << " " << rad2deg(car_center_diff) << " ";
+            if(fabs(tmp_yaw_diff) < min_yaw_diff)
+            {
+                min_yaw_diff = fabs(tmp_yaw_diff);
                 armor_target_min_yaw_diff = pred_armor_pos;
                 target_armor_pos_.second = tmp_yaw;
-                //min_distance_target_num = i;
             }
         }
 

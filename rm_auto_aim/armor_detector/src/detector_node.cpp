@@ -108,9 +108,38 @@ ArmorDetectorNode::ArmorDetectorNode(const rclcpp::NodeOptions & options)
   img_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
     "/image_raw", rclcpp::SensorDataQoS(),
     std::bind(&ArmorDetectorNode::imageCallback, this, std::placeholders::_1));
+
+  // game state
+  std::string game_state_topic = this->declare_parameter("game_state_topic", "/game_state");
+  game_state_sub_ = this->create_subscription<rm_interfaces::msg::GameState>(
+    game_state_topic, rclcpp::SensorDataQoS(),
+    std::bind(&ArmorDetectorNode::gameStateCallback, this, std::placeholders::_1));
+  gimbal_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+    "/joint_states", rclcpp::QoS(rclcpp::KeepLast(1)),
+    std::bind(&ArmorDetectorNode::gimbalStateCallback, this, std::placeholders::_1));
   
   car_position_ = cv::Point2f(10, 0);
 
+}
+
+void ArmorDetectorNode::gameStateCallback(
+  const rm_interfaces::msg::GameState::SharedPtr game_status)
+{
+  // modify hit order when enemy outpost is destroyed
+  if (game_status->enemy_outpost_hp != 0 && game_status->stage_remain_time > 330 && game_status->game_progress == 4)
+  {
+    detect_outpost_control_ = true;
+  }
+  else
+  {
+    detect_outpost_control_ = false;
+  }
+}
+
+void ArmorDetectorNode::gimbalStateCallback(
+  const sensor_msgs::msg::JointState::SharedPtr joint_state)
+{
+  now_pitch_ = -rad2deg(joint_state->position[0]);
 }
 
 void ArmorDetectorNode::projectMarkers_callback(const visualization_msgs::msg::MarkerArray::SharedPtr marker_array)
@@ -365,7 +394,7 @@ std::unique_ptr<Detector> ArmorDetectorNode::initDetector()
   std::vector<std::string> ignore_classes =
     this->declare_parameter("ignore_classes", std::vector<std::string>{"negative"});
   detector->classifier =
-    std::make_unique<NumberClassifier>(model_path, label_path, threshold, ignore_classes);
+    std::make_unique<NumberClassifier>(model_path, label_path, threshold, ignore_classes, detect_outpost_control_, now_pitch_);
 
   return detector;
 }

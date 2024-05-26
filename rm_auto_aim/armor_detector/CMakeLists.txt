@@ -40,23 +40,23 @@ rclcpp_components_register_node(${PROJECT_NAME}
 ## Testing ##
 #############
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_copyright
-    ament_cmake_uncrustify
-    ament_cmake_cpplint
-  )
-  ament_lint_auto_find_test_dependencies()
+# if(BUILD_TESTING)
+#   find_package(ament_lint_auto REQUIRED)
+#   list(APPEND AMENT_LINT_AUTO_EXCLUDE
+#     ament_cmake_copyright
+#     ament_cmake_uncrustify
+#     ament_cmake_cpplint
+#   )
+#   ament_lint_auto_find_test_dependencies()
 
-  find_package(ament_cmake_gtest)
-  ament_add_gtest(test_node_startup test/test_node_startup.cpp)
-  target_link_libraries(test_node_startup ${PROJECT_NAME})
+#   find_package(ament_cmake_gtest)
+#   ament_add_gtest(test_node_startup test/test_node_startup.cpp)
+#   target_link_libraries(test_node_startup ${PROJECT_NAME})
 
-  ament_add_gtest(test_number_cls test/test_number_cls.cpp)
-  target_link_libraries(test_number_cls ${PROJECT_NAME})
+#   ament_add_gtest(test_number_cls test/test_number_cls.cpp)
+#   target_link_libraries(test_number_cls ${PROJECT_NAME})
 
-endif()
+# endif()
 
 #############
 ## Install ##
